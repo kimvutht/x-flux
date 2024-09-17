@@ -51,7 +51,7 @@ logger = get_logger(__name__, log_level="INFO")
 import deepspeed
 
 class FluxModel(torch.nn.Module):
-    def __init__(self, name: str, device, offload: bool, is_schnell: bool):
+    def __init__(self, name: str, device, offload: bool, is_schnell: bool, train_t5: bool = False):
         super().__init__()
         
         self.device = torch.device(device)
@@ -70,51 +70,10 @@ class FluxModel(torch.nn.Module):
         # self.clip.hf_module.text_model.embeddings.position_embedding.requires_grad_(False)
         self.clip.hf_module.get_input_embeddings().requires_grad_(True)
         
-        
         self.t5.hf_module.requires_grad_(False)
-        self.t5.hf_module.get_input_embeddings().requires_grad_(True)
+        if train_t5:
+            self.t5.hf_module.get_input_embeddings().requires_grad_(True)
         
-    
-    # def __call__(self,
-    #              prompt: str,
-    #             #  image_prompt: Image = None,
-    #             #  controlnet_image: Image = None,
-    #              width: int = 1024,
-    #              height: int = 1024,
-    #              guidance: float = 4,
-    #              num_steps: int = 50,
-    #              seed: int = 123456789,
-    #              true_gs: float = 3,
-    #             #  control_weight: float = 0.9,
-    #             #  ip_scale: float = 1.0,
-    #             #  neg_ip_scale: float = 1.0,
-    #              neg_prompt: str = '',
-    #             #  neg_image_prompt: Image = None,
-    #              timestep_to_start_cfg: int = 0,
-    #              ):
-    #     width = 16 * (width // 16)
-    #     height = 16 * (height // 16)
-
-
-    #     return self.forward(
-    #         prompt,
-    #         width,
-    #         height,
-    #         guidance,
-    #         num_steps,
-    #         seed,
-    #         # controlnet_image,
-    #         timestep_to_start_cfg=timestep_to_start_cfg,
-    #         true_gs=true_gs,
-    #         # control_weight=control_weight,
-    #         neg_prompt=neg_prompt,
-    #         # image_proj=image_proj,
-    #         # neg_image_proj=neg_image_proj,
-    #         # ip_scale=ip_scale,
-    #         # neg_ip_scale=neg_ip_scale,
-    #     )
-        
-    
     def forward(
         self,
         prompt,
@@ -192,8 +151,8 @@ class FluxModel(torch.nn.Module):
 
 
 
-def get_models(name: str, device, offload: bool, is_schnell: bool):
-    model = FluxModel(name, device, offload, is_schnell)
+def get_models(name: str, device, offload: bool, is_schnell: bool, train_t5: bool = False):
+    model = FluxModel(name, device, offload, is_schnell, train_t5=train_t5)
     return model, model.model, model.vae, model.t5, model.clip
     t5 = load_t5(device, max_length=256 if is_schnell else 512)
     clip = load_clip(device)
@@ -324,27 +283,28 @@ def main():
         weight_dtype = torch.bfloat16
         args.mixed_precision = accelerator.mixed_precision
 
-    model, dit, vae, t5, clip = get_models(name=args.model_name, device=accelerator.device, offload=False, is_schnell=is_schnell)
+    model, dit, vae, t5, clip = get_models(name=args.model_name, device=accelerator.device, offload=False, is_schnell=is_schnell, train_t5=args.train_t5)
 
+    train_embdders = [clip] + ([t5] if args.train_t5 else [])
+    
     # Add token
-    placeholder_tokens = tokenizer_init(args, [
-        clip, t5
-    ])
+    placeholder_tokens = tokenizer_init(args, train_embdders)
     
     model = model.to(weight_dtype)
     clip.train()
-    t5.train()
+    if args.train_t5:
+        t5.train()
     
     
     optimizer_cls = torch.optim.AdamW
-    #you can train your own layers
-    for n, param in dit.named_parameters():
-        if 'txt_attn' not in n:
-            param.requires_grad = False
     
-    parameters =  list(t5.hf_module.get_input_embeddings().parameters()) + list(clip.hf_module.get_input_embeddings().parameters())
-    print(sum([p.numel() for p in model.parameters() if p.requires_grad]) / 1000000, 'model parameters')
-    print(sum([p.numel() for p in parameters if p.requires_grad]) / 1000000, 't5+clip parameters')
+    parameters =  [p for embdder in train_embdders for p in embdder.hf_module.get_input_embeddings().parameters()]
+    
+    logger.info(f'** Model parameters: {sum([p.numel() for p in model.parameters() if p.requires_grad]) / 1000000}M')
+    logger.info(f'** Train parameters: {sum([p.numel() for p in parameters]) / 1000000}M (CLIP{'+T5' if args.train_t5 else ""})')
+    
+    assert sum([p.numel() for p in model.parameters() if p.requires_grad]) == sum([p.numel() for p in parameters if p.requires_grad]), 'train parameters mismatch'
+    
     optimizer = optimizer_cls(
         parameters,
         lr=args.learning_rate,
@@ -410,12 +370,8 @@ def main():
     )
     
     # keep original embeddings as reference
-    with deepspeed.zero.GatheredParameters([clip.hf_module.get_input_embeddings().weight, t5.hf_module.get_input_embeddings().weight], modifier_rank=None, enabled=is_deepspeed_zero3_enabled()):
-        orig_embeds_params = [
-            clip.hf_module.get_input_embeddings().weight.data.clone(), 
-            t5.hf_module.get_input_embeddings().weight.data.clone()
-        ]
-
+    with deepspeed.zero.GatheredParameters([embdder.hf_module.get_input_embeddings().weight for embdder in train_embdders], modifier_rank=None, enabled=is_deepspeed_zero3_enabled()):
+        orig_embeds_params = [embdder.hf_module.get_input_embeddings().weight.data.clone() for embdder in train_embdders]
 
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
     if overrode_max_train_steps:
@@ -490,7 +446,7 @@ def main():
             if accelerator.sync_gradients:
                 # Restore the original embeddings, as we only train the new token's embeddings
                 restore_origin_text_encoder_embeddings(
-                    accelerator, placeholder_tokens, [clip, t5], orig_embeds_params
+                    accelerator, placeholder_tokens, train_embdders, orig_embeds_params
                 )
                 
                 progress_bar.update(1)
