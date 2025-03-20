@@ -301,7 +301,7 @@ def main():
     parameters =  [p for embdder in train_embdders for p in embdder.hf_module.get_input_embeddings().parameters()]
     
     logger.info(f'** Model parameters: {sum([p.numel() for p in model.parameters() if p.requires_grad]) / 1000000}M')
-    logger.info(f'** Train parameters: {sum([p.numel() for p in parameters]) / 1000000}M (CLIP{'+T5' if args.train_t5 else ""})')
+    logger.info(f"** Train parameters: {sum(p.numel() for p in parameters) / 1_000_000:.2f}M (CLIP{'+T5' if args.train_t5 else ''})")
     
     assert sum([p.numel() for p in model.parameters() if p.requires_grad]) == sum([p.numel() for p in parameters if p.requires_grad]), 'train parameters mismatch'
     
