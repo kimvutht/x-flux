@@ -129,16 +129,16 @@ class TextualInversionCustomImageDataset(Dataset):
 
 def textual_inversion_dataset_loader(train_batch_size, num_workers, **args):
     image_text_list = image_template = [
-        ("sample_images/샘플 1.png", "A painting in the style of {}, depicting a cheerful community scene with diverse characters engaging in daily activities, from a mother pushing a stroller to children playing with a soccer ball, all set against a backdrop of a quaint town with lush green hills and trees."),
-        ("sample_images/샘플 1.png", "People do various activities in a public space in the style of {}"),
-        ("sample_images/샘플 2.png", "A painting in the style of {}, showcasing children joyfully caring for pets through activities like playing with cats, feeding birds, brushing dogs, and washing dogs, all framed in a cozy, grid-like layout with a warm, inviting color palette."),
-        ("sample_images/샘플 2.png", "Different pet care activities in the style of {}"),
-        ("sample_images/샘플 3.png", "A school scene with students having varied emotions and engaging in various activities in the style of {}"),
-        ("sample_images/샘플 3.png", "A painting in the style of {}, capturing a lively schoolyard scene where students like Kevin, Sora, and Giho experience a range of emotions, from biking and daydreaming to studying and chatting, set against a backdrop of a charming school building and lush greenery."),
-        ("sample_images/샘플 4.png", "A lively classroom scene in the style of {}"),
-        ("sample_images/샘플 4.png", "A painting in the style of {}, depicting a vibrant classroom scene where students like Yuna, Amy, Joe, Eric, and others engage in various activities, from studying and playing badminton to checking out posters for the Cooking Club and Art Club, all set in a cheerful educational environment."),
-        ("sample_images/샘플 5.png", "A painting in the style of {}, illustrating a bustling park scene where people of all ages enjoy various activities, from biking and walking to having a picnic and washing hands, all set in a cheerful, green environment with winding paths and cozy buildings.")
-        ("sample_images/샘플 5.png", "A vibrant outdoor scene with people having daily activities in the style of {}")
+        ("/home/elicer/x-flux/sample_images/샘플_1.png", "A painting in the style of {}, depicting a cheerful community scene with diverse characters engaging in daily activities, from a mother pushing a stroller to children playing with a soccer ball, all set against a backdrop of a quaint town with lush green hills and trees."),
+        ("/home/elicer/x-flux/sample_images/샘플_1.png", "People do various activities in a public space in the style of {}"),
+        ("/home/elicer/x-flux/sample_images/샘플_2.png", "A painting in the style of {}, showcasing children joyfully caring for pets through activities like playing with cats, feeding birds, brushing dogs, and washing dogs, all framed in a cozy, grid-like layout with a warm, inviting color palette."),
+        ("/home/elicer/x-flux/sample_images/샘플_2.png", "Different pet care activities in the style of {}"),
+        ("/home/elicer/x-flux/sample_images/샘플_3.png", "A school scene with students having varied emotions and engaging in various activities in the style of {}"),
+        ("/home/elicer/x-flux/sample_images/샘플_3.png", "A painting in the style of {}, capturing a lively schoolyard scene where students like Kevin, Sora, and Giho experience a range of emotions, from biking and daydreaming to studying and chatting, set against a backdrop of a charming school building and lush greenery."),
+        ("/home/elicer/x-flux/sample_images/샘플_4.png", "A lively classroom scene in the style of {}"),
+        ("/home/elicer/x-flux/sample_images/샘플_4.png", "A painting in the style of {}, depicting a vibrant classroom scene where students like Yuna, Amy, Joe, Eric, and others engage in various activities, from studying and playing badminton to checking out posters for the Cooking Club and Art Club, all set in a cheerful educational environment."),
+        ("/home/elicer/x-flux/sample_images/샘플_5.png", "A painting in the style of {}, illustrating a bustling park scene where people of all ages enjoy various activities, from biking and walking to having a picnic and washing hands, all set in a cheerful, green environment with winding paths and cozy buildings."),
+        ("/home/elicer/x-flux/sample_images/샘플_5.png", "A vibrant outdoor scene with people having daily activities in the style of {}")
     ]
 
     dataset = TextualInversionCustomImageDataset(**args, image_text_list=image_text_list)
