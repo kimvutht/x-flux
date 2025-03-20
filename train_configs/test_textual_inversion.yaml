@@ -25,10 +25,10 @@ checkpoints_total_limit: 10
 tracker_project_name: finetune_test
 resume_from_checkpoint: latest
 gradient_accumulation_steps: 4
-validation_prompt: "a <teapot>"
+validation_prompt: "A construction site in the style of <animation>"
 validation_steps: 300
 guidance: 4
 num_validation_images: 1
-placeholder_token: "<teapot>"
+placeholder_token: "<animation>"
 num_vectors: 32
-initializer_token: "pot"
+initializer_token: "animation"
