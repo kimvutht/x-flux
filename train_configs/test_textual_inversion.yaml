@@ -4,12 +4,12 @@ data_config:
   num_workers: 4
   img_size: 512
   img_dir: images
-  learnable_property: "object"
+  learnable_property: "style"
   repeats: 100
 report_to: tensorboard
 train_batch_size: 1
 output_dir: saves
-max_train_steps: 1000
+max_train_steps: 4000
 learning_rate: 1e-5
 lr_scheduler: constant
 lr_warmup_steps: 10
@@ -25,10 +25,11 @@ checkpoints_total_limit: 10
 tracker_project_name: finetune_test
 resume_from_checkpoint: latest
 gradient_accumulation_steps: 4
-validation_prompt: "A construction site in the style of <animation>"
+validation_prompt: "People do various activities in a public space in the style of <animation>"
 validation_steps: 300
 guidance: 4
 num_validation_images: 1
 placeholder_token: "<animation>"
 num_vectors: 32
 initializer_token: "animation"
+train_t5: False
