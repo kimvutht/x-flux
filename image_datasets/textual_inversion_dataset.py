@@ -74,14 +74,15 @@ class TextualInversionCustomImageDataset(Dataset):
         learnable_property="object",  # [object, style]
         image_formats=("jpg", "jpeg", "png", "gif", "bmp", "tiff", "webp"),
         repeats=100,
+        image_text_list = []
     ):
 
-        self.image_paths = [
-            img
-            for ext in image_formats
-            for img in glob.glob(f"{img_dir}/**/*.{ext}", recursive=True)
-        ]
-        self.image_paths.sort()
+        # self.image_paths = [
+        #     img
+        #     for ext in image_formats
+        #     for img in glob.glob(f"{img_dir}/**/*.{ext}", recursive=True)
+        # ]
+        # self.image_paths.sort()
         self.img_size = img_size
         self.caption_type = caption_type
         self.placeholder_token = placeholder_token
@@ -91,8 +92,8 @@ class TextualInversionCustomImageDataset(Dataset):
             if learnable_property == "style"
             else imagenet_templates_small
         )
-
-        self.num_images = len(self.image_paths)
+        self.image_text_list = image_text_list
+        self.num_images = len(self.image_text_list)
         self._length = self.num_images * repeats
 
         # self.cache_images = {}
@@ -101,7 +102,7 @@ class TextualInversionCustomImageDataset(Dataset):
         return self._length
 
     def __getitem__(self, idx):
-        img = Image.open(self.image_paths[idx % self.num_images]).convert("RGB")
+        img = Image.open(self.image_text_list[idx % self.num_images][0]).convert("RGB")
         img = image_resize(img, self.img_size)
         w, h = img.size
         new_w = (w // 32) * 32
@@ -109,25 +110,38 @@ class TextualInversionCustomImageDataset(Dataset):
         img = img.resize((new_w, new_h))
         img = torch.from_numpy((np.array(img) / 127.5) - 1)
         img = img.permute(2, 0, 1)
-        json_path = (
-            self.image_paths[idx % self.num_images].split(".")[0]
-            + "."
-            + self.caption_type
-        )
+        # json_path = (
+        #     self.image_paths[idx % self.num_images].split(".")[0]
+        #     + "."
+        #     + self.caption_type
+        # )
 
-        if os.path.exists(json_path):
-            if self.caption_type == "json":
-                prompt = json.load(open(json_path))["caption"]
-            else:
-                prompt = open(json_path).read()
-        else:
-            prompt = random.choice(self.templates).format(self.placeholder_token)
-
+        # if os.path.exists(json_path):
+        #     if self.caption_type == "json":
+        #         prompt = json.load(open(json_path))["caption"]
+        #     else:
+        #         prompt = open(json_path).read()
+        # else:
+        #     prompt = random.choice(self.templates).format(self.placeholder_token)
+        prompt = self.image_text_list[idx % self.num_images][1].format(self.placeholder_token)
         return img, prompt
 
 
 def textual_inversion_dataset_loader(train_batch_size, num_workers, **args):
-    dataset = TextualInversionCustomImageDataset(**args)
+    image_text_list = image_template = [
+        ("sample_images/샘플 1.png", "A painting in the style of {}, depicting a cheerful community scene with diverse characters engaging in daily activities, from a mother pushing a stroller to children playing with a soccer ball, all set against a backdrop of a quaint town with lush green hills and trees."),
+        ("sample_images/샘플 1.png", "A painting in the style of {} with people do various activities in a public space"),
+        ("sample_images/샘플 2.png", "A painting in the style of {}, showcasing children joyfully caring for pets through activities like playing with cats, feeding birds, brushing dogs, and washing dogs, all framed in a cozy, grid-like layout with a warm, inviting color palette."),
+        ("sample_images/샘플 2.png", "A painting in the style of {}, showcasing different pet care activities"),
+        ("sample_images/샘플 3.png", "A painting in the style of {}, capturing a school scene with students having varied emotions and engaging in various activities in the style of {}"),
+        ("sample_images/샘플 3.png", "A painting in the style of {}, capturing a lively schoolyard scene where students like Kevin, Sora, and Giho experience a range of emotions, from biking and daydreaming to studying and chatting, set against a backdrop of a charming school building and lush greenery."),
+        ("sample_images/샘플 4.png", "A painting in the style of {}, illustrating a lively classroom scene."),
+        ("sample_images/샘플 4.png", "A painting in the style of {}, depicting a vibrant classroom scene where students like Yuna, Amy, Joe, Eric, and others engage in various activities, from studying and playing badminton to checking out posters for the Cooking Club and Art Club, all set in a cheerful educational environment."),
+        ("sample_images/샘플 5.png", "A painting in the style of {}, illustrating a bustling park scene where people of all ages enjoy various activities, from biking and walking to having a picnic and washing hands, all set in a cheerful, green environment with winding paths and cozy buildings.")
+        ("sample_images/샘플 5.png", "A painting in the style of {}, illustrating a vibrant outdoor scene with people having daily activities")
+    ]
+
+    dataset = TextualInversionCustomImageDataset(**args, image_text_list=image_text_list)
     return DataLoader(
         dataset, batch_size=train_batch_size, num_workers=num_workers, shuffle=True
     )
